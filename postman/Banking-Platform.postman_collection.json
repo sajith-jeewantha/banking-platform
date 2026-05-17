@@ -1,0 +1,318 @@
+{
+  "info": {
+    "name": "Digital Banking Platform",
+    "_postman_id": "banking-platform-collection",
+    "description": "WSO2 IS + WSO2 APIM + Spring Boot Banking API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "IS_URL", "value": "https://localhost:9443" },
+    { "key": "APIM_GW_URL", "value": "https://localhost:8243" },
+    { "key": "ACCOUNT_SVC", "value": "http://localhost:8081" },
+    { "key": "TXN_SVC", "value": "http://localhost:8082" },
+    { "key": "CLIENT_ID", "value": "YOUR_CLIENT_ID_FROM_IS" },
+    { "key": "CLIENT_SECRET", "value": "YOUR_CLIENT_SECRET_FROM_IS" },
+    { "key": "ACCESS_TOKEN", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. WSO2 IS - Get Access Token",
+      "item": [
+        {
+          "name": "Get Token (Password Grant)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var json = pm.response.json();",
+                  "pm.collectionVariables.set('ACCESS_TOKEN', json.access_token);",
+                  "console.log('Token saved: ' + json.access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{CLIENT_ID}}" },
+                { "key": "password", "value": "{{CLIENT_SECRET}}" }
+              ]
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "grant_type", "value": "password" },
+                { "key": "username", "value": "alice" },
+                { "key": "password", "value": "Alice@123" },
+                { "key": "scope", "value": "openid" }
+              ]
+            },
+            "url": {
+              "raw": "{{IS_URL}}/oauth2/token",
+              "host": ["{{IS_URL}}"],
+              "path": ["oauth2", "token"]
+            },
+            "description": "Get OAuth2 access token from WSO2 IS using Resource Owner Password Grant"
+          }
+        },
+        {
+          "name": "Introspect Token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "basic",
+              "basic": [
+                { "key": "username", "value": "{{CLIENT_ID}}" },
+                { "key": "password", "value": "{{CLIENT_SECRET}}" }
+              ]
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "token", "value": "{{ACCESS_TOKEN}}" }
+              ]
+            },
+            "url": {
+              "raw": "{{IS_URL}}/oauth2/introspect",
+              "host": ["{{IS_URL}}"],
+              "path": ["oauth2", "introspect"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Account Service (Direct)",
+      "item": [
+        {
+          "name": "Create Account - Savings",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerName\": \"Alice Fernando\",\n  \"accountType\": \"SAVINGS\",\n  \"initialDeposit\": 10000.00\n}"
+            },
+            "url": {
+              "raw": "{{ACCOUNT_SVC}}/api/accounts",
+              "host": ["{{ACCOUNT_SVC}}"],
+              "path": ["api", "accounts"]
+            }
+          }
+        },
+        {
+          "name": "Create Account - Current",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerName\": \"Alice Fernando\",\n  \"accountType\": \"CURRENT\",\n  \"initialDeposit\": 5000.00\n}"
+            },
+            "url": {
+              "raw": "{{ACCOUNT_SVC}}/api/accounts",
+              "host": ["{{ACCOUNT_SVC}}"],
+              "path": ["api", "accounts"]
+            }
+          }
+        },
+        {
+          "name": "Get My Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{ACCOUNT_SVC}}/api/accounts",
+              "host": ["{{ACCOUNT_SVC}}"],
+              "path": ["api", "accounts"]
+            }
+          }
+        },
+        {
+          "name": "Get Account by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{ACCOUNT_SVC}}/api/accounts/1",
+              "host": ["{{ACCOUNT_SVC}}"],
+              "path": ["api", "accounts", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Account Balance",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{ACCOUNT_SVC}}/api/accounts/1/balance",
+              "host": ["{{ACCOUNT_SVC}}"],
+              "path": ["api", "accounts", "1", "balance"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Transaction Service (Direct)",
+      "item": [
+        {
+          "name": "Deposit",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"toAccountId\": 1,\n  \"amount\": 2000.00,\n  \"description\": \"Salary deposit\"\n}"
+            },
+            "url": {
+              "raw": "{{TXN_SVC}}/api/transactions/deposit",
+              "host": ["{{TXN_SVC}}"],
+              "path": ["api", "transactions", "deposit"]
+            }
+          }
+        },
+        {
+          "name": "Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromAccountId\": 1,\n  \"amount\": 500.00,\n  \"description\": \"ATM withdrawal\"\n}"
+            },
+            "url": {
+              "raw": "{{TXN_SVC}}/api/transactions/withdraw",
+              "host": ["{{TXN_SVC}}"],
+              "path": ["api", "transactions", "withdraw"]
+            }
+          }
+        },
+        {
+          "name": "Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromAccountId\": 1,\n  \"toAccountId\": 2,\n  \"amount\": 1000.00,\n  \"description\": \"Rent payment\"\n}"
+            },
+            "url": {
+              "raw": "{{TXN_SVC}}/api/transactions/transfer",
+              "host": ["{{TXN_SVC}}"],
+              "path": ["api", "transactions", "transfer"]
+            }
+          }
+        },
+        {
+          "name": "Get My Transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{TXN_SVC}}/api/transactions/my",
+              "host": ["{{TXN_SVC}}"],
+              "path": ["api", "transactions", "my"]
+            }
+          }
+        },
+        {
+          "name": "Get Transactions by Account",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{TXN_SVC}}/api/transactions/account/1",
+              "host": ["{{TXN_SVC}}"],
+              "path": ["api", "transactions", "account", "1"]
+            }
+          }
+        },
+        {
+          "name": "Get Transaction by Ref",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{TXN_SVC}}/api/transactions/PASTE-TRANSACTION-REF-HERE",
+              "host": ["{{TXN_SVC}}"],
+              "path": ["api", "transactions", "PASTE-TRANSACTION-REF-HERE"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Via WSO2 APIM Gateway",
+      "item": [
+        {
+          "name": "APIM - Get My Accounts",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }
+            ],
+            "url": {
+              "raw": "{{APIM_GW_URL}}/account-api/1.0/api/accounts",
+              "host": ["{{APIM_GW_URL}}"],
+              "path": ["account-api", "1.0", "api", "accounts"]
+            },
+            "description": "Same request but routed through WSO2 APIM gateway"
+          }
+        },
+        {
+          "name": "APIM - Transfer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fromAccountId\": 1,\n  \"toAccountId\": 2,\n  \"amount\": 500.00,\n  \"description\": \"Payment via APIM\"\n}"
+            },
+            "url": {
+              "raw": "{{APIM_GW_URL}}/transaction-api/1.0/api/transactions/transfer",
+              "host": ["{{APIM_GW_URL}}"],
+              "path": ["transaction-api", "1.0", "api", "transactions", "transfer"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

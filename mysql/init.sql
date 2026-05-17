@@ -1,0 +1,8 @@
+-- -- Create databases
+-- CREATE DATABASE IF NOT EXISTS banking_account_db;
+-- CREATE DATABASE IF NOT EXISTS banking_transaction_db;
+--
+-- -- Grant permissions
+-- GRANT ALL PRIVILEGES ON banking_account_db.* TO 'bankuser'@'%';
+-- GRANT ALL PRIVILEGES ON banking_transaction_db.* TO 'bankuser'@'%';
+-- FLUSH PRIVILEGES;

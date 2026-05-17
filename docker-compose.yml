@@ -1,0 +1,135 @@
+version: '3.8'
+
+#SajithJeewantha
+
+services:
+
+  # ─────────────────────────────────────────
+  # MySQL Database
+  # ─────────────────────────────────────────
+#  mysql:
+#    image: mysql:8.0
+#    container_name: banking-mysql
+#    environment:
+#      MYSQL_ROOT_PASSWORD: root123
+#      MYSQL_USER: bankuser
+#      MYSQL_PASSWORD: bank123
+#    ports:
+#      - "3306:3306"
+#    volumes:
+#      - mysql_data:/var/lib/mysql
+#      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+#    networks:
+#      - banking-network
+#    healthcheck:
+#      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 10
+
+  # ─────────────────────────────────────────
+  # WSO2 Identity Server
+  # ─────────────────────────────────────────
+  wso2is:
+    image: wso2/wso2is:7.2.0
+    container_name: wso2-identity-server
+    ports:
+      - "9443:9443"   # HTTPS management console
+      - "9763:9763"   # HTTP
+    environment:
+      - JAVA_OPTS=-Xms512m -Xmx1024m
+    networks:
+      - banking-network
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-f", "https://localhost:9443/carbon/"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 120s
+
+  # ─────────────────────────────────────────
+  # WSO2 API Manager
+  # ─────────────────────────────────────────
+  wso2apim:
+    image: wso2/wso2am:4.7.0
+    container_name: wso2-api-manager
+    ports:
+      - "9444:9443"   # HTTPS publisher/devportal
+      - "8243:8243"   # HTTPS gateway
+      - "8280:8280"   # HTTP gateway
+    environment:
+#      - JAVA_OPTS=-Xms512m -Xmx1500m
+      - WSO2_SERVER_ROLE=default
+    depends_on:
+      wso2is:
+        condition: service_healthy
+    networks:
+      - banking-network
+    volumes:
+      - ./apim/deployment.toml:/home/wso2carbon/wso2am-4.7.0/repository/conf/deployment.toml:ro
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-f", "https://localhost:9443/carbon/"]
+      interval: 30s
+      timeout: 10s
+      retries: 15
+      start_period: 180s
+
+  # ─────────────────────────────────────────
+  # Account Service
+  # ─────────────────────────────────────────
+  account-service:
+    build:
+      context: ./account-service
+      dockerfile: Dockerfile
+    container_name: account-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/banking_account_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=root
+      # Don't Forget to put Database password
+      - SPRING_DATASOURCE_PASSWORD=
+      - WSO2_IS_JWKS_URL=https://wso2is:9443/oauth2/jwks
+      - INTERNAL_SERVICE_SECRET=internal-banking-secret-2024
+      - SERVER_PORT=8081
+#    depends_on:
+#      mysql:
+#        condition: service_healthy
+    networks:
+      - banking-network
+    restart: on-failure
+
+  # ─────────────────────────────────────────
+  # Transaction Service
+  # ─────────────────────────────────────────
+  transaction-service:
+    build:
+      context: ./transaction-service
+      dockerfile: Dockerfile
+    container_name: transaction-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/banking_transaction_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=root
+      # Don't Forget to put Database password
+      - SPRING_DATASOURCE_PASSWORD=
+      - WSO2_IS_JWKS_URL=https://wso2is:9443/oauth2/jwks
+      - ACCOUNT_SERVICE_URL=http://account-service:8081
+      - INTERNAL_SERVICE_SECRET=internal-banking-secret-2024
+      - SERVER_PORT=8082
+    depends_on:
+#      mysql:
+#        condition: service_healthy
+      account-service:
+        condition: service_started
+    networks:
+      - banking-network
+    restart: on-failure
+
+networks:
+  banking-network:
+    driver: bridge
+
+#volumes:
+#  mysql_data:
